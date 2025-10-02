@@ -450,7 +450,7 @@ export default function ByteLaneLanding() {
                       title: "Launch & Support",
                       desc: "Go live with ongoing support",
                     },
-                  ].map((item, index) => (
+                  ].map((item) => (
                     <div key={item.step} className="flex items-center gap-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-600">
                         {item.step}
