@@ -1,1159 +1,1747 @@
-import React, { useState, useEffect } from "react";
+/** src/ByteLaneLanding.tsx */
+"use client";
+import React, { useMemo, useEffect, useState } from "react";
+import {
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowRight,
-  CheckCircle2,
-  Menu,
-  X,
+  ShieldCheck,
+  BookOpen,
   Play,
-  Zap,
-  Users,
-  TrendingUp,
-  Globe,
-  Shield,
-  Rocket,
-  ShoppingCart,
-  Mail,
-  Phone,
-  MapPin,
-  Star,
-  Calendar,
-  HeadphonesIcon,
+  Lightbulb,
+  CheckCircle2,
+  FileText,
+  ListChecks,
+  Search,
+  ArrowRight,
+  Quote,
+  Home as HomeIcon,
+  Video as VideoIcon,
+  NotebookText,
+  Sparkles,
+  LayoutGrid,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-/** Enhanced motion wrappers */
-const FadeIn = ({
-  children,
-  className = "",
-  delay = 0,
-  duration = 0.6,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-  duration?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 30 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.2 }}
-    transition={{ duration, delay, ease: "easeOut" }}
-    className={className}
-  >
-    {children}
-  </motion.div>
-);
+/* ======================= Types & Labels ======================= */
+type SubjectId =
+  | "core-maths"
+  | "integrated-science"
+  | "physics"
+  | "chemistry"
+  | "biology"
+  | "web-dev";
 
-const SlideIn = ({
-  children,
-  direction = "left",
-  className = "",
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  direction?: "left" | "right" | "up";
-  className?: string;
-  delay?: number;
-}) => {
-  const directions = {
-    left: { x: -50, y: 0 },
-    right: { x: 50, y: 0 },
-    up: { x: 0, y: 50 },
-  };
+type ContentKind = "video" | "notes" | "past-questions";
+type VideoTag = "concept" | "topic" | "past";
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, ...directions[direction] }}
-      whileInView={{ opacity: 1, x: 0, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.7, delay, ease: "easeOut" }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
+interface Lesson {
+  id: number;
+  title: string;
+  description: string;
+  duration: string;
+  subject: SubjectId;
+  kind: ContentKind;
+  lessonNumber: number;
+  url?: string;
+  tag?: VideoTag;
+}
+
+interface Doc {
+  id: string;
+  subject: SubjectId;
+  kind: Exclude<ContentKind, "video">;
+  title: string;
+  url: string;
+  description?: string;
+}
+
+interface Tip {
+  id: string;
+  title: string;
+  blurb: string;
+  href?: string;
+}
+
+const SUBJECT_LABEL: Record<SubjectId, string> = {
+  "core-maths": "Core Mathematics",
+  "integrated-science": "Integrated Science",
+  physics: "Physics",
+  chemistry: "Chemistry",
+  biology: "Biology",
+  "web-dev": "Web Development",
 };
 
+/* ======================= Palette (hero-driven) ======================= */
+const PALETTE = {
+  ink: "#ECECEC",
+  sub: "#C6C6C6",
+  bg: "#3a3a3c", // hero stage dark
+  card: "#2f3032", // hero card dark
+  paper: "#faf9f7", // soft paper for light sections
+  line: "rgba(255,255,255,0.08)",
+  darkLine: "rgba(0,0,0,0.08)",
+  dot: "rgba(255,255,255,0.18)",
+  accent: "#b9c46a", // muted lime/olive accent
+  accentInk: "#1a1a1a",
+};
+
+/* ======================= Sample Content ======================= */
+const LESSONS: Lesson[] = [
+  {
+    id: 1,
+    title: "Linear Equations — Fast Methods",
+    description: "Simple steps + quick checks (SHS/JHS).",
+    duration: "12:10",
+    subject: "core-maths",
+    kind: "video",
+    lessonNumber: 1,
+    tag: "concept",
+    url: "#",
+  },
+  {
+    id: 2,
+    title: "Quadratics — Factor / Square / Formula",
+    description: "Choose the fastest route for each type.",
+    duration: "18:45",
+    subject: "core-maths",
+    kind: "video",
+    lessonNumber: 2,
+    tag: "topic",
+    url: "#",
+  },
+  {
+    id: 3,
+    title: "Electricity: Current • Voltage • Resistance",
+    description: "Concept clarity + exam-style examples.",
+    duration: "16:22",
+    subject: "integrated-science",
+    kind: "video",
+    lessonNumber: 1,
+    tag: "concept",
+    url: "#",
+  },
+  {
+    id: 4,
+    title: "Motion & Forces (Newton)",
+    description: "Speed vs velocity; quick WASSCE drills.",
+    duration: "19:31",
+    subject: "physics",
+    kind: "video",
+    lessonNumber: 1,
+    tag: "topic",
+    url: "#",
+  },
+  {
+    id: 5,
+    title: "Periodic Trends — Exam Shortcuts",
+    description: "Atomic radius, I.E., E.N. — memory anchors.",
+    duration: "14:02",
+    subject: "chemistry",
+    kind: "video",
+    lessonNumber: 1,
+    tag: "past",
+    url: "#",
+  },
+  {
+    id: 6,
+    title: "HTML/CSS Starter (Bonus)",
+    description: "Project-based intro for tech-curious students.",
+    duration: "22:08",
+    subject: "web-dev",
+    kind: "video",
+    lessonNumber: 1,
+    tag: "concept",
+    url: "#",
+  },
+];
+
+const DOCS: Doc[] = [
+  {
+    id: "n1",
+    subject: "core-maths",
+    kind: "notes",
+    title: "Core Maths — Concise Revision Notes (JHS/SHS)",
+    url: "#",
+  },
+  {
+    id: "pq1",
+    subject: "core-maths",
+    kind: "past-questions",
+    title: "Quadratics — Past Questions (with answers)",
+    url: "#",
+  },
+  {
+    id: "n2",
+    subject: "integrated-science",
+    kind: "notes",
+    title: "Electricity — One-Pager (Key Laws + Tricks)",
+    url: "#",
+  },
+  {
+    id: "pq2",
+    subject: "integrated-science",
+    kind: "past-questions",
+    title: "Electricity: Topic Drill (20 items)",
+    url: "#",
+  },
+  {
+    id: "n3",
+    subject: "physics",
+    kind: "notes",
+    title: "Motion & Forces — Speed Sheet",
+    url: "#",
+  },
+  {
+    id: "n4",
+    subject: "chemistry",
+    kind: "notes",
+    title: "Periodic Table & Trends — Pocket Guide",
+    url: "#",
+  },
+  {
+    id: "n5",
+    subject: "biology",
+    kind: "notes",
+    title: "Cell Structure — Rapid Review",
+    url: "#",
+  },
+];
+
+const TIPS: Tip[] = [
+  {
+    id: "t1",
+    title: "Parent Check-ins",
+    blurb: "Ask your ward to teach back one solved question daily.",
+  },
+  {
+    id: "t2",
+    title: "Two-Column Notes",
+    blurb: "Left = steps; Right = why. Fewer crams, more understanding.",
+  },
+  {
+    id: "t3",
+    title: "Short Daily Reps",
+    blurb: "10–15 mins Maths/Science beats one long weekly session.",
+  },
+  {
+    id: "t4",
+    title: "Exam Rhythm",
+    blurb: "Weekly timed practice—calm speed, not panic speed.",
+  },
+];
+
+const SOCIAL_VIDS = [
+  {
+    id: "v1",
+    platform: "TikTok",
+    title: "Electricity made simple (series & parallel)",
+    duration: "0:38",
+    views: "72k",
+    thumb:
+      "https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "v2",
+    platform: "Instagram",
+    title: "Core Maths hack: Factor in 30s",
+    duration: "0:45",
+    views: "48k",
+    thumb:
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1200&auto=format&fit=crop",
+  },
+  {
+    id: "v3",
+    platform: "YouTube",
+    title: "Quadratics in 30 seconds",
+    duration: "0:44",
+    views: "96k",
+    thumb:
+      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=1200&auto=format&fit=crop",
+  },
+];
+
+/* ======================= UI Primitives ======================= */
 const Section = ({
-  id,
   children,
   className = "",
+  style,
 }: {
-  id?: string;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) => (
-  <section id={id} className={`w-full py-16 md:py-24 lg:py-28 ${className}`}>
-    {children}
+  <section className={`w-full py-12 md:py-16 ${className}`} style={style}>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">{children}</div>
   </section>
 );
 
-const Container = ({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <div className={`mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 ${className}`}>
-    {children}
-  </div>
-);
-
-/** Enhanced Feature Card */
-const FeatureCard = ({
-  title,
-  children,
-  icon: Icon = CheckCircle2,
-  delay = 0,
-}: {
-  title: string;
-  children: React.ReactNode;
-  icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.3 }}
-    transition={{ duration: 0.5, delay }}
-    whileHover={{ y: -5, transition: { duration: 0.2 } }}
-    className="group rounded-2xl border border-gray-200 bg-white p-6 lg:p-8 transition-all hover:border-blue-300 hover:shadow-xl"
-  >
-    <div className="mb-4 flex items-center gap-4">
-      <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-3 group-hover:scale-110 transition-transform">
-        <Icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
-      </div>
-      <h4 className="text-lg lg:text-xl font-semibold text-gray-900">
-        {title}
-      </h4>
-    </div>
-    <p className="text-sm lg:text-base leading-relaxed text-gray-600">
-      {children}
-    </p>
-  </motion.div>
-);
-
-/** Enhanced Plan Card */
-const PlanCard = ({
-  title,
-  upfront,
-  price,
-  items,
-  featured = false,
-  ctaHref = "#contact",
-  ctaLabel = "Get Started",
-  delay = 0,
-}: {
-  title: string;
-  upfront: string;
-  price: string;
-  items: string[];
-  featured?: boolean;
-  ctaHref?: string;
-  ctaLabel?: string;
-  delay?: number;
-}) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -5, transition: { duration: 0.2 } }}
-      className={`relative flex flex-col rounded-2xl border-2 ${
-        featured
-          ? "border-blue-500 bg-white shadow-2xl lg:scale-105"
-          : "border-gray-200 bg-white"
-      } p-6 lg:p-8 transition-all hover:shadow-xl`}
-    >
-      {featured && (
-        <div className="absolute -top-3 lg:-top-4 left-1/2 transform -translate-x-1/2">
-          <span className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 lg:px-6 py-1 lg:py-2 text-xs lg:text-sm font-semibold text-white shadow-lg">
-            Most Popular
-          </span>
-        </div>
-      )}
-
-      <h3 className="text-xl lg:text-2xl font-bold text-gray-900">{title}</h3>
-
-      <div className="mt-4 lg:mt-6 space-y-2">
-        <p className="text-2xl lg:text-3xl font-bold text-gray-900">
-          {upfront}
-        </p>
-        <p className="text-base lg:text-lg text-gray-600">
-          then <span className="font-semibold text-gray-900">{price}</span>
-          /month
-        </p>
-      </div>
-
-      <ul className="mt-6 lg:mt-8 space-y-3 lg:space-y-4 text-sm lg:text-base text-gray-600 flex-1">
-        {items.map((it, i) => (
-          <li key={i} className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 lg:mt-1 h-4 w-4 lg:h-5 lg:w-5 text-green-500 flex-shrink-0" />
-            <span className="leading-relaxed">{it}</span>
-          </li>
-        ))}
-      </ul>
-
-      <a
-        href={ctaHref}
-        className={`mt-6 lg:mt-8 inline-flex items-center justify-center gap-2 lg:gap-3 rounded-xl px-4 lg:px-6 py-3 lg:py-4 text-sm lg:text-base font-semibold transition-all ${
-          featured
-            ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg hover:scale-105"
-            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-        }`}
-      >
-        {ctaLabel}
-        <ArrowRight className="h-4 w-4" />
-      </a>
-    </motion.div>
-  );
-};
-
-/** Enhanced Animated counter */
-const AnimatedCounter = ({
+function Tabs<Val extends string>({
   value,
-  suffix = "",
+  onChange,
+  items,
+  size = "md",
 }: {
-  value: number;
-  suffix?: string;
-}) => {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const duration = 2000;
-    const steps = 60;
-    const stepValue = value / steps;
-    let currentStep = 0;
-
-    const timer = setInterval(() => {
-      currentStep++;
-      setCount(Math.min(Math.floor(stepValue * currentStep), value));
-
-      if (currentStep >= steps) {
-        clearInterval(timer);
-      }
-    }, duration / steps);
-
-    return () => clearInterval(timer);
-  }, [value]);
-
+  value: Val;
+  onChange: (v: Val) => void;
+  items: {
+    value: Val;
+    label: string;
+    icon?: React.ReactNode;
+    badge?: number | string;
+  }[];
+  size?: "sm" | "md";
+}) {
   return (
-    <span className="text-2xl lg:text-4xl font-bold text-white">
-      {count.toLocaleString()}
-      {suffix}
-    </span>
-  );
-};
-
-/** Enhanced Testimonial Component */
-const Testimonial = ({
-  quote,
-  name,
-  role,
-  company,
-  delay = 0,
-}: {
-  quote: string;
-  name: string;
-  role: string;
-  company: string;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.3 }}
-    transition={{ duration: 0.5, delay }}
-    whileHover={{ y: -5 }}
-    className="rounded-2xl border border-gray-200 bg-white p-6 lg:p-8 shadow-sm transition-all hover:shadow-lg"
-  >
-    <div className="mb-4 lg:mb-6 flex text-yellow-400">
-      {[...Array(5)].map((_, i) => (
-        <Star key={i} className="h-4 w-4 lg:h-5 lg:w-5 fill-current" />
+    <div className="flex flex-wrap items-center gap-2">
+      {items.map((it) => (
+        <button
+          key={it.value}
+          onClick={() => onChange(it.value)}
+          className={`inline-flex items-center gap-2 rounded-md ${
+            size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"
+          } font-semibold transition-colors ${
+            value === it.value
+              ? "bg-stone-900 text-white"
+              : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+          }`}
+        >
+          {it.icon}
+          {it.label}
+          {it.badge !== undefined && (
+            <span
+              className={`ml-1 rounded-full ${
+                size === "sm"
+                  ? "px-1.5 py-0.5 text-[10px]"
+                  : "px-2 py-0.5 text-[11px]"
+              } bg-white/20`}
+            >
+              {it.badge}
+            </span>
+          )}
+        </button>
       ))}
     </div>
+  );
+}
 
-    <p className="mb-4 lg:mb-6 text-sm lg:text-lg leading-relaxed text-gray-600">
-      "{quote}"
-    </p>
+/* ======================= Category Helpers ======================= */
+const SUBJECTS: SubjectId[] = [
+  "core-maths",
+  "integrated-science",
+  "physics",
+  "chemistry",
+  "biology",
+  "web-dev",
+];
 
-    <div className="flex items-center gap-3 lg:gap-4">
-      <div className="h-8 w-8 lg:h-12 lg:w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs lg:text-base font-semibold">
-        {name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")}
-      </div>
-      <div>
-        <div className="text-sm lg:text-base font-semibold text-gray-900">
-          {name}
+const CATEGORY_LABEL: Record<ContentKind | "videos", string> = {
+  notes: "Study",
+  "past-questions": "Practice",
+  videos: "Watch",
+  video: "Watch",
+};
+
+function useURLState<T extends Record<string, string>>(
+  defaults: T
+): [T, (patch: Partial<T>) => void] {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const current = { ...defaults } as T;
+
+  (Object.keys(defaults) as Array<keyof T>).forEach((k) => {
+    const v = params.get(String(k));
+    if (v !== null) current[k] = v as T[keyof T];
+  });
+
+  const patch = (p: Partial<T>) => {
+    const next = new URLSearchParams(params);
+    (Object.entries(p) as Array<[keyof T, string | undefined]>).forEach(
+      ([k, v]) => {
+        const key = String(k);
+        if (v === undefined || v === "") next.delete(key);
+        else next.set(key, v);
+      }
+    );
+    navigate({ search: `?${next.toString()}` }, { replace: true });
+  };
+  return [current, patch];
+}
+
+/* ======================= HERO ======================= */
+const HERO_SLIDES = [
+  {
+    id: "s1",
+    title: "You’re not bad at math — you just need it in your language.",
+    sub: "We help you understand, not just memorize.",
+  },
+  {
+    id: "s2",
+    title:
+      "Every child can learn once someone teaches with patience and sense.",
+    sub: "We rebuild confidence, not fear.",
+  },
+  {
+    id: "s3",
+    title:
+      "Your child’s struggle isn’t failure — it’s a signal to teach differently.",
+    sub: "We guide them back to confidence, one clear lesson at a time.",
+  },
+  {
+    id: "s4",
+    title: "You don’t have to be a genius to understand.",
+    sub: "You just need someone who explains it the right way.",
+  },
+  {
+    id: "s5",
+    title: "We don’t train geniuses. We grow understanding.",
+    sub: "Every great result begins with the right guide.",
+  },
+] as const;
+
+const TICKER_ITEMS = [
+  "1:1 Home Tuition",
+  "Live Online Tuition",
+  "Tricks & Shortcuts",
+  "Concise Notes",
+  "Video Library",
+  "Past Questions Practice",
+];
+
+/** smooth marquee/ticker on dark */
+function Ticker({ items }: { items: string[] }) {
+  const content = [...items, ...items];
+  return (
+    <div
+      className="relative overflow-hidden rounded-full"
+      style={{
+        border: `1px solid ${PALETTE.line}`,
+        background: "#2b2c2e99",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <motion.div
+        aria-hidden
+        className="flex gap-6 whitespace-nowrap px-4 py-2 text-sm font-medium"
+        style={{ color: PALETTE.sub }}
+        animate={{ x: ["0%", "-50%"] }}
+        transition={{ duration: 24, ease: "linear", repeat: Infinity }}
+      >
+        {content.map((t, i) => (
+          <span key={i} className="inline-flex items-center gap-2">
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: PALETTE.dot }}
+            />
+            {t}
+          </span>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+/* -------- NEW: Direction-aware horizontal slide variants -------- */
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? "100%" : "-100%",
+    opacity: 0.8,
+  }),
+  center: { x: "0%", opacity: 1 },
+  exit: (direction: number) => ({
+    x: direction > 0 ? "-100%" : "100%",
+    opacity: 0.8,
+  }),
+};
+
+/** Big centered hero card with mobile-safe typography and horizontal slide */
+function HeroAttentionCard() {
+  const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const len = HERO_SLIDES.length;
+
+  useEffect(() => {
+    // Slower auto-advance interval
+    const id = window.setInterval(() => {
+      setDirection(1);
+      setIndex((p) => (p + 1) % len);
+    }, 11000); // was 6000ms
+    return () => window.clearInterval(id);
+  }, [len]);
+
+  const go = (dir: 1 | -1) => {
+    setDirection(dir);
+    setIndex((p) => (p + dir + len) % len);
+  };
+
+  const onDragEnd = (
+    _: MouseEvent | TouchEvent,
+    info: { offset: { x: number } }
+  ) => {
+    const dx = info.offset.x;
+    if (dx > 120)
+      go(-1); // slightly higher threshold to avoid accidental fast slides
+    else if (dx < -120) go(1);
+  };
+
+  return (
+    <div className="group relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      {/* dark stage */}
+      <div
+        className="relative rounded-2xl sm:rounded-[32px] p-4 sm:p-6 md:p-10"
+        style={{
+          background: `radial-gradient(1200px 420px at 50% -60%, #4a4b4d 0%, ${PALETTE.bg} 60%)`,
+          border: `1px solid ${PALETTE.line}`,
+        }}
+      >
+        {/* Card */}
+        <div
+          className="relative mx-auto w-full max-w-5xl rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden"
+          style={{
+            background: PALETTE.card,
+            border: `1px solid ${PALETTE.line}`,
+          }}
+        >
+          {/* natural height on mobile; fixed aspect only from md up */}
+          <div className="relative min-h-[260px] md:aspect-[3/2]">
+            <AnimatePresence
+              initial={false}
+              custom={direction}
+              mode="popLayout"
+            >
+              <motion.div
+                key={HERO_SLIDES[index].id}
+                className="absolute inset-0"
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                onDragEnd={onDragEnd}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  type: "tween",
+                  ease: "easeInOut",
+                  duration: 0.7, // was 0.45s — smoother, slower slide
+                }}
+              >
+                <div className="h-full w-full p-4 sm:p-6 md:p-10 flex flex-col justify-between">
+                  {/* badge + corner icon (hide icon on xs to reduce noise) */}
+                  <div className="flex items-start justify-between">
+                    <span
+                      className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        background: "#161617",
+                        color: PALETTE.ink,
+                        border: `1px solid ${PALETTE.line}`,
+                      }}
+                    >
+                      iTeach Pro
+                    </span>
+                    <span
+                      className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-full"
+                      style={{
+                        border: `1px solid ${PALETTE.line}`,
+                        color: PALETTE.sub,
+                        background: "#2b2c2e99",
+                        backdropFilter: "blur(6px)",
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </div>
+
+                  {/* Title + sub with clamp & wrapping */}
+                  <div className="mt-2">
+                    <h1
+                      className="font-extrabold tracking-tight"
+                      style={{
+                        color: PALETTE.ink,
+                        fontSize: "clamp(20px, 6.2vw, 40px)",
+                        lineHeight: 1.15,
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
+                        hyphens: "auto",
+                      }}
+                    >
+                      {HERO_SLIDES[index].title}
+                    </h1>
+                    <p
+                      className="mt-2"
+                      style={{
+                        color: PALETTE.accent,
+                        fontSize: "clamp(13px, 3.8vw, 18px)",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {HERO_SLIDES[index].sub}
+                    </p>
+                  </div>
+
+                  {/* Ticker hidden on very small screens */}
+                  <div className="hidden sm:block">
+                    <Ticker items={TICKER_ITEMS} />
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
-        <div className="text-xs lg:text-sm text-gray-500">
-          {role}, {company}
+
+        {/* Controls + dots */}
+        <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2 sm:gap-3">
+          <button
+            onClick={() => go(-1)}
+            aria-label="Previous"
+            className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full"
+            style={{
+              background: "#2b2c2e99",
+              color: PALETTE.ink,
+              border: `1px solid ${PALETTE.line}`,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {HERO_SLIDES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setDirection(i > index ? 1 : -1);
+                  setIndex(i);
+                }}
+                aria-label={`Slide ${i + 1}`}
+                className="h-1.5 sm:h-2 rounded-full transition-all"
+                style={{
+                  width: i === index ? 20 : 8,
+                  background: i === index ? PALETTE.accent : PALETTE.dot,
+                }}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => go(1)}
+            aria-label="Next"
+            className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full"
+            style={{
+              background: "#2b2c2e99",
+              color: PALETTE.ink,
+              border: `1px solid ${PALETTE.line}`,
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        </div>
+
+        {/* CTA pills under card */}
+        <div className="mx-auto mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+          <Link
+            to="/contact"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold hover:opacity-90"
+            style={{ background: PALETTE.accent, color: PALETTE.accentInk }}
+          >
+            Book Home Tutor <HomeIcon className="h-4 w-4" />
+          </Link>
+          {/* <Link
+            to="/contact"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
+            style={{
+              color: PALETTE.ink,
+              border: `1px solid ${PALETTE.line}`,
+              background: "#2b2c2e",
+            }}
+          >
+            Try Online Lesson <VideoIcon className="h-4 w-4" />
+          </Link> */}
         </div>
       </div>
     </div>
-  </motion.div>
-);
+  );
+}
 
-/** Floating Elements */
-const FloatingElement = ({
-  children,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ y: 0 }}
-    animate={{ y: [-10, 10, -10] }}
-    transition={{ duration: 4, delay, repeat: Infinity, ease: "easeInOut" }}
-    className="hidden lg:block"
-  >
-    {children}
-  </motion.div>
-);
-
-/** Mobile Stats Grid */
-const MobileStats = ({ children }: { children: React.ReactNode }) => (
-  <div className="lg:hidden grid grid-cols-2 gap-4 mt-8">{children}</div>
-);
-
-export default function ByteLaneLanding() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
-
-    // Simulate loading
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-
-    window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      clearTimeout(timer);
-    };
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex items-center gap-3"
-        >
-          <Globe className="h-6 w-6 lg:h-8 lg:w-8 text-blue-600" />
-          <span className="text-xl lg:text-2xl font-bold text-blue-600">
-            ByteLane
-          </span>
-        </motion.div>
-      </div>
+/* ======================= Home ======================= */
+function HomePage() {
+  const navigate = useNavigate();
+  const goTo = (
+    category: "videos" | "notes" | "past-questions",
+    subject: SubjectId
+  ) => {
+    navigate(
+      `/library?subject=${subject}&tab=${category}${
+        category === "videos" ? "&vfilter=all" : ""
+      }`
     );
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-purple-50/30 text-gray-900 overflow-hidden">
-      {/* Enhanced Header */}
-      <header
-        className={`fixed top-0 z-50 w-full transition-all duration-500 ${
-          scrolled
-            ? "border-b border-blue-100/50 bg-white/95 backdrop-blur-lg shadow-sm"
-            : "border-b border-transparent bg-transparent"
-        }`}
+    <>
+      {/* HERO — dark 3:2 carousel */}
+      <Section
+        className="pt-6 sm:pt-10 pb-3 sm:pb-6"
+        style={{
+          background:
+            "linear-gradient(180deg,#2f3032 0%, #3a3a3c 60%, #3a3a3c 100%)",
+        }}
       >
-        <Container>
-          <div className="flex h-16 lg:h-20 items-center justify-between">
-            <motion.a
-              href="#"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2 lg:gap-3 text-xl lg:text-2xl font-bold text-blue-700"
-            >
-              <Globe className="h-5 w-5 lg:h-7 lg:w-7 text-blue-600" />
-              ByteLane
-            </motion.a>
+        <HeroAttentionCard />
+      </Section>
 
-            <nav className="hidden items-center gap-6 lg:gap-8 text-sm lg:text-base md:flex">
-              {[
-                "Services",
-                "Solutions",
-                "About",
-                "Testimonials",
-                "Contact",
-              ].map((item, index) => (
-                <motion.a
-                  key={item}
-                  href={`#${item.toLowerCase()}`}
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="font-semibold text-gray-700 hover:text-blue-600 transition-colors relative group"
-                >
-                  {item}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full"></span>
-                </motion.a>
-              ))}
-            </nav>
-
-            <motion.a
-              href="#contact"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="hidden items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-4 lg:px-6 py-2 lg:py-3 text-sm font-semibold text-white hover:shadow-lg transition-all hover:scale-105 md:inline-flex"
+      {/* SERVICES — light paper with accent chips */}
+      <Section
+        className="py-10"
+        style={{
+          background: PALETTE.paper,
+          borderTop: `1px solid ${PALETTE.darkLine}`,
+        }}
+      >
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold text-stone-900">
+            Save time, raise grades
+          </h2>
+          <p className="mt-2 text-stone-600">
+            Focused, exam-aware teaching with simple steps and fun anchors.
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 md:grid-cols-3">
+          <div
+            className="rounded-2xl border p-6"
+            style={{ background: "#f3f7ef", borderColor: "#dfe6d2" }}
+          >
+            <div
+              className="inline-flex rounded-md text-white p-2 mb-3"
+              style={{ background: PALETTE.accent }}
             >
-              Get Started
-              <ArrowRight className="h-3 w-3 lg:h-4 lg:w-4" />
-            </motion.a>
+              <HomeIcon className="h-5 w-5" />
+            </div>
+            <div className="text-lg font-semibold text-stone-900">
+              1:1 Home Tuition (SHS/JHS)
+            </div>
+            <p className="text-sm text-stone-700 mt-1">
+              Personal plan, calm pace, weekly feedback to parents.
+            </p>
+          </div>
+          <div
+            className="rounded-2xl border p-6"
+            style={{ background: "#eef4ff", borderColor: "#dae6ff" }}
+          >
+            <div className="inline-flex rounded-md bg-stone-900 text-white p-2 mb-3">
+              <VideoIcon className="h-5 w-5" />
+            </div>
+            <div className="text-lg font-semibold text-stone-900">
+              Live Online Tuition
+            </div>
+            <p className="text-sm text-stone-700 mt-1">
+              Interactive board, recordings, and homework follow-ups.
+            </p>
+          </div>
+          <div
+            className="rounded-2xl border p-6"
+            style={{ background: "#fff6e6", borderColor: "#ffe6bf" }}
+          >
+            <div className="inline-flex rounded-md bg-stone-900 text-white p-2 mb-3">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="text-lg font-semibold text-stone-900">
+              Tricks & Exam Shortcuts
+            </div>
+            <p className="text-sm text-stone-700 mt-1">
+              Memory anchors & speed methods that match marking schemes.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* CATEGORY CHOOSER — white on paper */}
+      <Section className="py-8" style={{ background: PALETTE.paper }}>
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold text-stone-900">
+            Start by category
+          </h2>
+          <p className="mt-2 text-stone-600">
+            Choose a category, pick a subject, then open the library.
+          </p>
+        </div>
+
+        <div
+          className="mx-auto mt-6 max-w-3xl rounded-2xl p-4 shadow-sm"
+          style={{
+            background: "#ffffff",
+            border: `1px solid ${PALETTE.darkLine}`,
+          }}
+        >
+          <form
+            className="grid gap-4 sm:grid-cols-[1fr,1fr,auto]"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const form = e.currentTarget as HTMLFormElement;
+              const data = new FormData(form);
+              const cat = data.get("category") as
+                | "videos"
+                | "notes"
+                | "past-questions";
+              const subject = data.get("subject") as SubjectId;
+              goTo(cat, subject);
+            }}
+          >
+            <label className="flex flex-col text-sm text-stone-600">
+              Category
+              <select
+                name="category"
+                id="category"
+                className="mt-1 rounded-xl border border-stone-300 px-3 py-2"
+                defaultValue="notes"
+              >
+                <option value="notes">Study (Notes)</option>
+                <option value="videos">Watch (Videos)</option>
+                <option value="past-questions">Practice (Past Qs)</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col text-sm text-stone-600">
+              Subject
+              <select
+                name="subject"
+                id="subject"
+                className="mt-1 rounded-xl border border-stone-300 px-3 py-2"
+                defaultValue="core-maths"
+              >
+                {SUBJECTS.slice(0, 5).map((s) => (
+                  <option key={s} value={s}>
+                    {SUBJECT_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="rounded-xl bg-white p-2 lg:p-3 text-blue-600 shadow-sm hover:shadow-md transition-all md:hidden"
+              type="submit"
+              className="self-end rounded-xl px-5 py-2.5 text-sm font-semibold text-stone-900 hover:opacity-90"
+              style={{ background: PALETTE.accent }}
             >
-              {isMenuOpen ? (
-                <X className="h-4 w-4 lg:h-5 lg:w-5" />
-              ) : (
-                <Menu className="h-4 w-4 lg:h-5 lg:w-5" />
-              )}
+              Open <ArrowRight className="ml-1 inline-block h-4 w-4" />
             </button>
-          </div>
-        </Container>
+          </form>
+        </div>
+      </Section>
 
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="border-t border-blue-100 bg-white/95 backdrop-blur-lg md:hidden"
+      {/* WHY & PREVIEWS */}
+      <Section className="py-0" style={{ background: "#ffffff" }}>
+        <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr] items-center">
+          <div
+            className="rounded-3xl p-8 lg:p-10"
+            style={{ background: "#f9f5e7", border: "1px solid #efe3c6" }}
+          >
+            <h3 className="text-3xl font-extrabold text-stone-900">
+              Why students pass with us
+            </h3>
+            <ul className="mt-6 space-y-3 text-stone-800">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />{" "}
+                Tailored plans for SHS/JHS based on strengths & gaps.
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />{" "}
+                Concept → Examples → Past Questions (fast loop).
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />{" "}
+                Concise revision notes for night-before clarity.
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />{" "}
+                Calm progress, weekly parent updates.
+              </li>
+            </ul>
+            <div className="mt-6 grid sm:grid-cols-3 gap-6">
+              <div>
+                <div className="text-4xl font-extrabold text-stone-900">5+</div>
+                <div className="text-sm text-stone-700">Years teaching</div>
+              </div>
+              <div>
+                <div className="text-4xl font-extrabold text-stone-900">86</div>
+                <div className="text-sm text-stone-700">Happy parents</div>
+              </div>
+              <div>
+                <div className="text-4xl font-extrabold text-stone-900">
+                  32+
+                </div>
+                <div className="text-sm text-stone-700">School partners</div>
+              </div>
+            </div>
+          </div>
+          <div
+            className="rounded-3xl overflow-hidden"
+            style={{ border: "1px solid #e7e1d7", background: "#fff" }}
+          >
+            <img
+              alt="Student revising concise notes"
+              src="https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?q=80&w=1400&auto=format&fit=crop"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* PREVIEWS: Notes + Videos */}
+      <Section style={{ background: "#ffffff" }}>
+        <div className="grid gap-8 lg:grid-cols-[1fr,1fr]">
+          {/* Notes preview */}
+          <div
+            className="rounded-3xl p-6"
+            style={{
+              background: "#ffffff",
+              border: `1px solid ${PALETTE.darkLine}`,
+            }}
+          >
+            <div
+              className="inline-flex items-center gap-2 rounded-md px-3 py-1 text-xs font-semibold"
+              style={{ background: "#1f1f1f", color: "#fff" }}
             >
-              <Container>
-                <div className="flex flex-col gap-4 lg:gap-6 py-6 lg:py-8">
-                  {[
-                    "Services",
-                    "Solutions",
-                    "About",
-                    "Testimonials",
-                    "Contact",
-                  ].map((item) => (
-                    <a
-                      key={item}
-                      href={`#${item.toLowerCase()}`}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="font-semibold text-gray-700 hover:text-blue-600 transition-colors py-2"
-                    >
-                      {item}
-                    </a>
-                  ))}
-                  <a
-                    href="#contact"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 text-sm font-semibold text-white"
-                  >
-                    Get Started
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                </div>
-              </Container>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
-
-      {/* Enhanced Hero Section */}
-      <Section className="pt-20 lg:pt-32 pb-12 lg:pb-20">
-        <Container>
-          <div className="grid items-center gap-8 lg:gap-16 lg:grid-cols-2">
-            <div className="space-y-6 lg:space-y-8">
-              <FadeIn delay={0.1}>
-                <div className="inline-flex items-center gap-2 lg:gap-3 rounded-full bg-white/80 px-3 lg:px-4 py-1.5 lg:py-2.5 text-xs lg:text-sm font-semibold text-blue-700 shadow-lg backdrop-blur-sm">
-                  <Rocket className="h-3 w-3 lg:h-4 lg:w-4" />
-                  Trusted by 50+ Ghanaian Businesses
-                </div>
-              </FadeIn>
-
-              <FadeIn delay={0.2}>
-                <h1 className="text-3xl lg:text-5xl xl:text-6xl font-bold tracking-tight text-gray-900">
-                  Digital Growth{" "}
-                  <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    Made Simple
-                  </span>
-                </h1>
-              </FadeIn>
-
-              <FadeIn delay={0.3}>
-                <p className="text-base lg:text-xl leading-relaxed text-gray-600 max-w-2xl">
-                  Professional websites, e-commerce, and digital tools that
-                  drive real business growth. No technical expertise required.
-                </p>
-              </FadeIn>
-
-              <FadeIn delay={0.4}>
-                <div className="flex flex-col sm:flex-row gap-3 lg:gap-4">
-                  <a
-                    href="#solutions"
-                    className="inline-flex items-center justify-center gap-2 lg:gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 lg:px-8 py-3 lg:py-4 text-sm lg:text-lg font-semibold text-white hover:shadow-xl transition-all hover:scale-105"
-                  >
-                    View Solutions
-                    <ArrowRight className="h-4 w-4 lg:h-5 lg:w-5" />
-                  </a>
-                  <a
-                    href="#contact"
-                    className="inline-flex items-center justify-center gap-2 lg:gap-3 rounded-xl border border-gray-300 bg-white px-6 lg:px-8 py-3 lg:py-4 text-sm lg:text-lg font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all"
-                  >
-                    <Play className="h-4 w-4 lg:h-5 lg:w-5" />
-                    Watch Demo
-                  </a>
-                </div>
-              </FadeIn>
-
-              {/* Stats */}
-              <div className="space-y-4 lg:space-y-8">
-                <FadeIn delay={0.5}>
-                  <div className="flex items-center gap-4 lg:gap-8 pt-4 lg:pt-8">
-                    <div className="flex -space-x-2 lg:-space-x-3">
-                      {[...Array(4)].map((_, i) => (
-                        <img
-                          key={i}
-                          src={`https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=100&q=80&facepad=2`}
-                          alt="Happy customer"
-                          className="h-8 w-8 lg:h-12 lg:w-12 rounded-full border-2 lg:border-4 border-white shadow-lg"
-                        />
-                      ))}
-                    </div>
-                    <div className="text-sm">
-                      <div className="font-semibold text-gray-900">
-                        50+ Businesses Transformed
-                      </div>
-                      <div className="text-gray-500">
-                        Join our happy clients
-                      </div>
-                    </div>
-                  </div>
-                </FadeIn>
-
-                {/* Mobile Stats Grid */}
-                <MobileStats>
-                  <div className="rounded-xl bg-white p-4 shadow-lg text-center">
-                    <div className="text-lg font-bold text-gray-900">+40%</div>
-                    <div className="text-xs text-gray-600">Avg. Growth</div>
-                  </div>
-                  <div className="rounded-xl bg-white p-4 shadow-lg text-center">
-                    <div className="text-lg font-bold text-gray-900">
-                      14 Days
-                    </div>
-                    <div className="text-xs text-gray-600">Avg. Launch</div>
-                  </div>
-                </MobileStats>
-              </div>
+              <NotebookText className="h-4 w-4" /> Concise Revision Notes
             </div>
-
-            <SlideIn direction="right" delay={0.3}>
-              <div className="relative mt-8 lg:mt-0">
-                <div className="hidden lg:block absolute -top-6 -right-6 -bottom-6 -left-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-3xl transform rotate-2"></div>
-                <img
-                  src="https://images.unsplash.com/photo-1556761175-4b46a572b786?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
-                  alt="Team collaboration"
-                  className="relative rounded-2xl shadow-2xl w-full"
-                />
-
-                {/* Floating elements - Desktop only */}
-                <FloatingElement delay={0}>
-                  <div className="absolute -bottom-6 -left-6 rounded-2xl bg-white p-4 lg:p-6 shadow-2xl">
-                    <div className="flex items-center gap-3 lg:gap-4">
-                      <div className="rounded-xl bg-green-100 p-2 lg:p-3">
-                        <TrendingUp className="h-4 w-4 lg:h-6 lg:w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm lg:text-base font-bold text-gray-900">
-                          +40%
-                        </div>
-                        <div className="text-xs lg:text-sm text-gray-500">
-                          Avg. Growth
-                        </div>
-                      </div>
+            <h3 className="mt-3 text-2xl font-extrabold text-stone-900">
+              Everything you need, nothing extra
+            </h3>
+            <p className="mt-1 text-stone-600">
+              One-pagers and pocket guides for <b>night-before</b> clarity—key
+              laws, formulas, common traps, and exam cues.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {DOCS.filter((d) => d.kind === "notes")
+                .slice(0, 4)
+                .map((d) => (
+                  <a
+                    key={d.id}
+                    href={d.url}
+                    className="rounded-xl p-4 hover:bg-stone-100"
+                    style={{
+                      background: "#f7f7f7",
+                      border: `1px solid ${PALETTE.darkLine}`,
+                    }}
+                  >
+                    <div className="text-sm font-semibold text-stone-900">
+                      {d.title}
                     </div>
-                  </div>
-                </FloatingElement>
-
-                <FloatingElement delay={0.5}>
-                  <div className="absolute -top-6 -right-6 rounded-2xl bg-white p-4 lg:p-6 shadow-2xl">
-                    <div className="flex items-center gap-3 lg:gap-4">
-                      <div className="rounded-xl bg-blue-100 p-2 lg:p-3">
-                        <Calendar className="h-4 w-4 lg:h-6 lg:w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm lg:text-base font-bold text-gray-900">
-                          14 Days
-                        </div>
-                        <div className="text-xs lg:text-sm text-gray-500">
-                          Avg. Launch
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </FloatingElement>
-              </div>
-            </SlideIn>
-          </div>
-        </Container>
-      </Section>
-
-      {/* Enhanced Services Section */}
-      <Section id="services" className="bg-white">
-        <Container>
-          <FadeIn>
-            <div className="mx-auto max-w-4xl text-center">
-              <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-gray-900">
-                Our Services
-              </h2>
-              <p className="mt-3 lg:mt-4 text-base lg:text-xl text-gray-600">
-                Comprehensive digital solutions to grow your business
-              </p>
+                  </a>
+                ))}
             </div>
-          </FadeIn>
-
-          <div className="mt-8 lg:mt-16 grid gap-6 lg:gap-8 md:grid-cols-3">
-            <FeatureCard title="Professional Websites" icon={Globe} delay={0.1}>
-              Custom-designed websites that convert visitors into customers.
-              Mobile-optimized and built for performance with 99.9% uptime.
-            </FeatureCard>
-
-            <FeatureCard
-              title="E-Commerce Solutions"
-              icon={ShoppingCart}
-              delay={0.2}
+            <Link
+              to="/library?tab=notes"
+              className="mt-4 inline-flex items-center gap-2 font-semibold"
+              style={{ color: "#6b4f00" }}
             >
-              Complete online stores with secure payments, inventory management,
-              and seamless customer experience. Integrated with mobile money.
-            </FeatureCard>
-
-            <FeatureCard title="Business Automation" icon={Zap} delay={0.3}>
-              Streamline operations with automated booking, payments, and
-              customer communication systems. Save 10+ hours weekly.
-            </FeatureCard>
+              Browse all notes <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
-          <FadeIn delay={0.4} className="mt-8 lg:mt-12 text-center">
-            <a
-              href="/services"
-              className="inline-flex items-center justify-center gap-2 lg:gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 lg:px-8 py-3 lg:py-4 text-sm lg:text-lg font-semibold text-white hover:shadow-xl transition-all hover:scale-105"
+          {/* Videos preview */}
+          <div>
+            <div
+              className="inline-flex items-center gap-2 rounded-md px-3 py-1 text-xs font-semibold"
+              style={{ background: "#f1f5e6", color: "#3b3d1c" }}
             >
-              View All Services
-              <ArrowRight className="h-4 w-4 lg:h-5 lg:w-5" />
-            </a>
-          </FadeIn>
-        </Container>
-      </Section>
-
-      {/* Enhanced Solutions Section */}
-      <Section
-        id="solutions"
-        className="bg-gradient-to-br from-blue-50 to-purple-50"
-      >
-        <Container>
-          <FadeIn>
-            <div className="mx-auto max-w-4xl text-center">
-              <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-gray-900">
-                Pricing Plans
-              </h2>
-              <p className="mt-3 lg:mt-4 text-base lg:text-xl text-gray-600">
-                Choose the package that fits your business stage and goals
-              </p>
+              <Play className="h-4 w-4" /> Videos — Concepts • Topics • Past Qs
             </div>
-          </FadeIn>
-
-          <div className="mt-8 lg:mt-16 grid gap-6 lg:gap-8 lg:grid-cols-3">
-            <PlanCard
-              title="Essential Digital"
-              upfront="1,050 GHS"
-              price="150 GHS"
-              items={[
-                "Professional Business Website",
-                "Secure Hosting & SSL Certificate",
-                "Google Business Profile Setup",
-                "Basic Analytics Dashboard",
-                "Mobile-Optimized Design",
-                "Email & Chat Support",
-                "1 Month Free Support",
-              ]}
-              delay={0.1}
-            />
-
-            <PlanCard
-              title="Growth Suite"
-              upfront="1,450 GHS"
-              price="250 GHS"
-              featured
-              items={[
-                "Everything in Essential",
-                "Booking & Payment Integration",
-                "Social Media Management",
-                "Monthly Performance Reports",
-                "Advanced Analytics Dashboard",
-                "Priority Support (12hr response)",
-                "3 Months Free Support",
-              ]}
-              delay={0.2}
-            />
-
-            <PlanCard
-              title="Business Pro"
-              upfront="2,500 GHS"
-              price="400 GHS"
-              items={[
-                "Everything in Growth Suite",
-                "Full E-Commerce Store",
-                "Advanced Branding Package",
-                "ROI & Conversion Analytics",
-                "Dedicated Account Manager",
-                "24/7 Priority Support",
-                "6 Months Free Support",
-              ]}
-              delay={0.3}
-            />
-          </div>
-
-          <FadeIn delay={0.4} className="mt-8 lg:mt-12 text-center">
-            <div className="rounded-2xl bg-white p-6 lg:p-8 shadow-lg">
-              <div className="flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-6">
-                <HeadphonesIcon className="h-6 w-6 lg:h-8 lg:w-8 text-blue-600" />
-                <div className="text-center lg:text-left">
-                  <p className="text-base lg:text-lg font-semibold text-gray-900">
-                    Need a custom enterprise solution?
-                  </p>
-                  <p className="text-sm lg:text-base text-gray-600">
-                    <a
-                      href="#contact"
-                      className="font-semibold text-blue-600 hover:text-blue-700"
-                    >
-                      Contact our team
-                    </a>{" "}
-                    for tailored pricing and dedicated support.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        </Container>
-      </Section>
-
-      {/* Enhanced About Section */}
-      <Section id="about" className="bg-white">
-        <Container>
-          <div className="grid items-center gap-8 lg:gap-16 lg:grid-cols-2">
-            <SlideIn direction="left">
-              <div className="relative">
-                <div className="hidden lg:block absolute -top-6 -right-6 -bottom-6 -left-6 bg-gradient-to-br from-blue-500 to-purple-500 rounded-3xl transform -rotate-2"></div>
-                <img
-                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80"
-                  alt="Our team"
-                  className="relative rounded-2xl shadow-2xl w-full"
-                />
-              </div>
-            </SlideIn>
-
-            <FadeIn delay={0.2}>
-              <div className="space-y-6 lg:space-y-8">
-                <div>
-                  <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-gray-900">
-                    About ByteLane
-                  </h2>
-                  <p className="mt-3 lg:mt-4 text-base lg:text-xl leading-relaxed text-gray-600">
-                    We're a Ghana-based digital agency passionate about helping
-                    local businesses thrive in the digital age. Our team
-                    combines technical expertise with deep understanding of the
-                    Ghanaian market.
-                  </p>
-                </div>
-
-                <div className="grid gap-4 lg:gap-6 sm:grid-cols-2">
-                  {[
-                    {
-                      icon: Shield,
-                      title: "Ghana-Based",
-                      description: "Local insight, faster response times",
-                    },
-                    {
-                      icon: TrendingUp,
-                      title: "Proven Results",
-                      description: "30% average revenue growth for clients",
-                    },
-                    {
-                      icon: Users,
-                      title: "Expert Team",
-                      description: "5+ years industry experience",
-                    },
-                    {
-                      icon: Zap,
-                      title: "Fast Delivery",
-                      description: "14 days average project completion",
-                    },
-                  ].map((item, index) => (
-                    <motion.div
-                      key={item.title}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-start gap-3 lg:gap-4 rounded-xl bg-gray-50 p-4 lg:p-6 hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="rounded-lg bg-blue-100 p-2 lg:p-3">
-                        <item.icon className="h-4 w-4 lg:h-6 lg:w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm lg:text-base font-semibold text-gray-900">
-                          {item.title}
-                        </h4>
-                        <p className="mt-1 text-xs lg:text-sm text-gray-600">
-                          {item.description}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </FadeIn>
-          </div>
-        </Container>
-      </Section>
-
-      {/* Enhanced Results Section */}
-      <Section
-        id="results"
-        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-      >
-        <Container>
-          <FadeIn>
-            <div className="mx-auto max-w-4xl text-center">
-              <h2 className="text-2xl lg:text-4xl font-bold tracking-tight">
-                Our Impact
-              </h2>
-              <p className="mt-3 lg:mt-4 text-base lg:text-xl text-blue-100">
-                Driving measurable growth for Ghanaian businesses
-              </p>
-            </div>
-          </FadeIn>
-
-          <div className="mt-8 lg:mt-16 grid gap-6 lg:gap-8 text-center sm:grid-cols-3">
-            {[
-              {
-                value: 50,
-                suffix: "+",
-                label: "Businesses Transformed",
-                icon: Users,
-                delay: 0.1,
-              },
-              {
-                value: 30,
-                suffix: "%",
-                label: "Average Revenue Growth",
-                icon: TrendingUp,
-                delay: 0.2,
-              },
-              {
-                value: 14,
-                suffix: " days",
-                label: "Average Time to Launch",
-                icon: Rocket,
-                delay: 0.3,
-              },
-            ].map((item) => (
-              <FadeIn key={item.label} delay={item.delay}>
-                <div className="rounded-2xl bg-white/10 p-6 lg:p-8 backdrop-blur-sm hover:bg-white/15 transition-all">
-                  <div className="mb-4 lg:mb-6 flex justify-center">
-                    <div className="rounded-xl bg-white/20 p-3 lg:p-4">
-                      <item.icon className="h-6 w-6 lg:h-8 lg:w-8" />
-                    </div>
-                  </div>
-                  <div className="text-2xl lg:text-4xl font-bold">
-                    <AnimatedCounter value={item.value} suffix={item.suffix} />
-                  </div>
-                  <div className="mt-2 lg:mt-4 text-sm lg:text-lg text-blue-100">
-                    {item.label}
-                  </div>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
-        </Container>
-      </Section>
-
-      {/* Enhanced Testimonials Section */}
-      <Section id="testimonials" className="bg-white">
-        <Container>
-          <FadeIn>
-            <div className="mx-auto max-w-4xl text-center">
-              <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-gray-900">
-                What Our Clients Say
-              </h2>
-              <p className="mt-3 lg:mt-4 text-base lg:text-xl text-gray-600">
-                Don't just take our word for it
-              </p>
-            </div>
-          </FadeIn>
-
-          <div className="mt-8 lg:mt-16 grid gap-6 lg:gap-8 md:grid-cols-3">
-            <Testimonial
-              quote="ByteLane transformed our online presence in just 2 weeks. Our bookings increased by 40% immediately after launch. The team understood exactly what we needed."
-              name="Ama Boakye"
-              role="Owner"
-              company="BrightCare Services"
-              delay={0.1}
-            />
-            <Testimonial
-              quote="The monthly pricing model made it affordable for our small business. The support team is always responsive and helpful. Our revenue grew by 35% in 3 months."
-              name="Kofi Mensah"
-              role="Manager"
-              company="SwiftFix Repairs"
-              delay={0.2}
-            />
-            <Testimonial
-              quote="E-commerce integration with mobile money changed everything for our retail business. Sales grew by 60% in the first month. Highly recommended for Ghanaian businesses."
-              name="Adwoa Nyarko"
-              role="CEO"
-              company="PureFoods Ghana"
-              delay={0.3}
-            />
-          </div>
-        </Container>
-      </Section>
-
-      {/* Enhanced Contact Section */}
-      <Section
-        id="contact"
-        className="bg-gradient-to-br from-gray-50 to-blue-50/30"
-      >
-        <Container>
-          <div className="grid gap-8 lg:gap-16 lg:grid-cols-2">
-            <FadeIn>
-              <div className="space-y-6 lg:space-y-8">
-                <div>
-                  <h2 className="text-2xl lg:text-4xl font-bold tracking-tight text-gray-900">
-                    Get In Touch
-                  </h2>
-                  <p className="mt-3 lg:mt-4 text-base lg:text-xl leading-relaxed text-gray-600">
-                    Ready to transform your business? Let's discuss your goals
-                    and build a solution that drives real growth for your
-                    Ghanaian business.
-                  </p>
-                </div>
-
-                <div className="space-y-4 lg:space-y-6">
-                  {[
-                    {
-                      icon: Mail,
-                      title: "Email",
-                      content: "hello@bytelane.africa",
-                      href: "mailto:hello@bytelane.africa",
-                    },
-                    {
-                      icon: Phone,
-                      title: "Phone",
-                      content: "+233 000 000 000",
-                      href: "tel:+233000000000",
-                    },
-                    {
-                      icon: MapPin,
-                      title: "Location",
-                      content: "Accra, Ghana",
-                      href: "#",
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.title}
-                      className="flex items-center gap-3 lg:gap-4 rounded-2xl bg-white p-4 lg:p-6 shadow-sm hover:shadow-md transition-all"
-                    >
-                      <div className="rounded-xl bg-blue-100 p-2 lg:p-3">
-                        <item.icon className="h-4 w-4 lg:h-6 lg:w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm lg:text-base font-semibold text-gray-900">
-                          {item.title}
-                        </div>
-                        <a
-                          href={item.href}
-                          className="text-blue-600 hover:text-blue-700 transition-colors text-sm lg:text-base"
-                        >
-                          {item.content}
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </FadeIn>
-
-            <FadeIn delay={0.2}>
-              <div className="rounded-2xl bg-white p-6 lg:p-8 shadow-xl">
-                <h3 className="text-xl lg:text-2xl font-semibold text-gray-900">
-                  Send us a message
-                </h3>
-                <form className="mt-6 lg:mt-8 space-y-4 lg:space-y-6">
-                  <div className="grid gap-4 lg:gap-6 sm:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor="name"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        className="mt-1 lg:mt-2 block w-full rounded-xl border border-gray-300 px-3 lg:px-4 py-2 lg:py-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                        placeholder="Your name"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        className="mt-1 lg:mt-2 block w-full rounded-xl border border-gray-300 px-3 lg:px-4 py-2 lg:py-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                        placeholder="your@email.com"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="subject"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Subject
-                    </label>
-                    <input
-                      type="text"
-                      id="subject"
-                      className="mt-1 lg:mt-2 block w-full rounded-xl border border-gray-300 px-3 lg:px-4 py-2 lg:py-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                      placeholder="How can we help?"
+            <h3 className="mt-3 text-2xl font-extrabold text-stone-900">
+              Watch it click
+            </h3>
+            <p className="mt-1 text-stone-600">
+              Short, focused videos that target <b>concept clarity</b>,{" "}
+              <b>topic mastery</b>, or <b>past-questions</b> drills.
+            </p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {SOCIAL_VIDS.map((v) => (
+                <a
+                  key={v.id}
+                  href="#"
+                  className="rounded-2xl overflow-hidden hover:shadow-sm"
+                  style={{
+                    background: "#ffffff",
+                    border: `1px solid ${PALETTE.darkLine}`,
+                  }}
+                >
+                  <div className="relative h-32">
+                    <img
+                      src={v.thumb}
+                      alt={v.title}
+                      className="h-full w-full object-cover"
                     />
+                    <div className="absolute right-2 bottom-2 text-[11px] bg-stone-900/70 text-white px-2 py-0.5 rounded">
+                      {v.duration}
+                    </div>
                   </div>
-                  <div>
-                    <label
-                      htmlFor="message"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Message
-                    </label>
-                    <textarea
-                      id="message"
-                      rows={4}
-                      className="mt-1 lg:mt-2 block w-full rounded-xl border border-gray-300 px-3 lg:px-4 py-2 lg:py-3 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                      placeholder="Tell us about your project..."
-                    ></textarea>
+                  <div className="p-3">
+                    <div className="text-sm font-semibold text-stone-900">
+                      {v.title}
+                    </div>
+                    <div className="text-xs text-stone-500">
+                      {v.views} views
+                    </div>
                   </div>
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 lg:py-4 text-sm lg:text-lg font-semibold text-white hover:shadow-xl transition-all hover:scale-105"
-                  >
-                    Send Message
-                  </button>
-                </form>
-              </div>
-            </FadeIn>
+                </a>
+              ))}
+            </div>
           </div>
-        </Container>
+        </div>
       </Section>
 
-      {/* Enhanced Footer */}
-      <footer className="border-t border-gray-200 bg-white py-12 lg:py-16">
-        <Container>
-          <div className="grid gap-8 lg:gap-12 md:grid-cols-4">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 lg:gap-3 text-xl lg:text-2xl font-bold text-blue-700">
-                <Globe className="h-5 w-5 lg:h-7 lg:w-7 text-blue-600" />
-                ByteLane
-              </div>
-              <p className="text-sm lg:text-lg leading-relaxed text-gray-600">
-                Empowering Ghanaian businesses with digital excellence since
-                2023.
-              </p>
+      {/* Testimonial + CTA */}
+      <Section className="pt-0" style={{ background: PALETTE.paper }}>
+        <div className="grid gap-6 lg:grid-cols-[1fr,1fr]">
+          <div
+            className="rounded-3xl p-6"
+            style={{ background: "#eaf3ff", border: "1px solid #d6e7ff" }}
+          >
+            <div
+              className="flex items-center gap-2 mb-2"
+              style={{ color: "#205493" }}
+            >
+              <Quote className="h-5 w-5" />
+              <div className="text-sm font-semibold">What parents say</div>
             </div>
+            <p className="text-stone-800">
+              “My daughter finally enjoys <b>Integrated Science</b>. The concise
+              notes + past-question drills removed the fear. Her scores jumped
+              in 4 weeks.” — <b>Kwesi, Parent</b>
+            </p>
+          </div>
+          <div
+            className="rounded-3xl p-6"
+            style={{
+              background: "#ffffff",
+              border: `1px solid ${PALETTE.darkLine}`,
+            }}
+          >
+            <h4 className="text-xl font-extrabold text-stone-900">
+              Ready to raise grades?
+            </h4>
+            <p className="text-stone-600 mt-1">
+              Tell us your goals—home or online—we’ll map a plan in 24 hours.
+            </p>
+            <Link
+              to="/contact"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 font-semibold text-stone-900 hover:opacity-90"
+              style={{ background: PALETTE.accent }}
+            >
+              Book a Tutor <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
 
-            <div>
-              <h4 className="text-base lg:text-lg font-semibold text-gray-900">
-                Services
-              </h4>
-              <ul className="mt-3 lg:mt-4 space-y-2 lg:space-y-3 text-sm lg:text-base text-gray-600">
-                {[
-                  "Web Development",
-                  "E-Commerce",
-                  "Business Automation",
-                  "Digital Marketing",
-                ].map((service) => (
-                  <li key={service}>
-                    <a
-                      href="#services"
-                      className="hover:text-blue-600 transition-colors"
-                    >
-                      {service}
-                    </a>
+/* ======================= Programs ======================= */
+function ProgramsPage() {
+  const PROGRAMS = [
+    {
+      id: "jhs",
+      title: "JHS — Core Maths & Integrated Science",
+      summary:
+        "Foundation → confidence. Simple steps, daily reps, BECE-style practice.",
+      features: [
+        "Concept → Examples → Past Qs",
+        "Concise revision notes",
+        "Weekly feedback to parents",
+      ],
+      icon: "book",
+    },
+    {
+      id: "shs",
+      title: "SHS — Core Maths, Physics, Chem, Bio",
+      summary:
+        "WASSCE-aware methods. Tricks & shortcuts with marking-scheme focus.",
+      features: [
+        "Topic maps & speed methods",
+        "Targeted past-question drills",
+        "Calm exam rhythm",
+      ],
+      icon: "grad",
+    },
+    {
+      id: "web",
+      title: "Online Booster (All Levels)",
+      summary:
+        "Live board, recordings, and homework follow-ups for remote learners.",
+      features: [
+        "Interactive sessions",
+        "Homework support",
+        "Progress tracking",
+      ],
+      icon: "code",
+    },
+  ] as const;
+
+  return (
+    <main
+      className="min-h-screen"
+      style={{ background: PALETTE.paper, color: "#111" }}
+    >
+      <Section>
+        <div className="text-center">
+          <h1 className="text-3xl font-extrabold">Programs</h1>
+          <p className="mt-2 text-stone-700">
+            Science & Maths success for SHS/JHS—home and online.
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 md:grid-cols-3">
+          {PROGRAMS.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-2xl p-6 hover:shadow-sm"
+              style={{
+                background: "#ffffff",
+                border: `1px solid ${PALETTE.darkLine}`,
+              }}
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <div
+                  className="rounded-md p-2 text-stone-900"
+                  style={{ background: PALETTE.accent }}
+                >
+                  {p.icon === "book" && <BookOpen className="h-5 w-5" />}
+                  {p.icon === "code" && <VideoIcon className="h-5 w-5" />}
+                  {p.icon === "grad" && <LayoutGrid className="h-5 w-5" />}
+                </div>
+                <h3 className="text-base font-semibold">{p.title}</h3>
+              </div>
+              <p className="text-sm text-stone-700">{p.summary}</p>
+              <ul className="mt-3 space-y-2 text-sm text-stone-800">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />{" "}
+                    {f}
                   </li>
                 ))}
               </ul>
             </div>
+          ))}
+        </div>
+      </Section>
+    </main>
+  );
+}
 
-            <div>
-              <h4 className="text-base lg:text-lg font-semibold text-gray-900">
-                Company
-              </h4>
-              <ul className="mt-3 lg:mt-4 space-y-2 lg:space-y-3 text-sm lg:text-base text-gray-600">
-                {["About Us", "Testimonials", "Contact", "Careers"].map(
-                  (item) => (
-                    <li key={item}>
-                      <a
-                        href={`#${item.toLowerCase().replace(" ", "")}`}
-                        className="hover:text-blue-600 transition-colors"
-                      >
-                        {item}
-                      </a>
-                    </li>
-                  )
-                )}
-              </ul>
-            </div>
+/* ======================= Library ======================= */
+function LibraryPage() {
+  const [url, setURL] = useURLState<{
+    subject: SubjectId;
+    tab: "videos" | "notes" | "past-questions";
+    vfilter: "all" | VideoTag;
+    q: string;
+  }>({
+    subject: "core-maths",
+    tab: "videos",
+    vfilter: "all",
+    q: "",
+  });
 
-            <div>
-              <h4 className="text-base lg:text-lg font-semibold text-gray-900">
-                Connect
-              </h4>
-              <ul className="mt-3 lg:mt-4 space-y-2 lg:space-y-3 text-sm lg:text-base text-gray-600">
-                {["LinkedIn", "Twitter", "Facebook", "Instagram"].map(
-                  (platform) => (
-                    <li key={platform}>
-                      <a
-                        href="#"
-                        className="hover:text-blue-600 transition-colors"
-                      >
-                        {platform}
-                      </a>
-                    </li>
-                  )
-                )}
-              </ul>
-            </div>
+  const activeSubject: SubjectId = url.subject;
+  const tab: "videos" | "notes" | "past-questions" = url.tab;
+  const vfilter: "all" | VideoTag = url.vfilter;
+  const q = url.q || "";
+
+  const subjects: SubjectId[] = SUBJECTS;
+
+  const allVideos = useMemo(
+    () =>
+      LESSONS.filter((l) => l.kind === "video" && l.subject === activeSubject),
+    [activeSubject]
+  );
+
+  const vids = useMemo(
+    () =>
+      allVideos.filter(
+        (l) =>
+          (vfilter === "all" || l.tag === vfilter) &&
+          (q.trim() === "" ||
+            l.title.toLowerCase().includes(q.toLowerCase()) ||
+            l.description.toLowerCase().includes(q.toLowerCase()))
+      ),
+    [allVideos, vfilter, q]
+  );
+
+  const notes = useMemo(
+    () =>
+      DOCS.filter(
+        (d) =>
+          d.subject === activeSubject &&
+          d.kind === "notes" &&
+          (q.trim() === "" ||
+            d.title.toLowerCase().includes(q.toLowerCase()) ||
+            (d.description?.toLowerCase() ?? "").includes(q.toLowerCase()))
+      ),
+    [activeSubject, q]
+  );
+
+  const pqs = useMemo(
+    () =>
+      DOCS.filter(
+        (d) =>
+          d.subject === activeSubject &&
+          d.kind === "past-questions" &&
+          (q.trim() === "" ||
+            d.title.toLowerCase().includes(q.toLowerCase()) ||
+            (d.description?.toLowerCase() ?? "").includes(q.toLowerCase()))
+      ),
+    [activeSubject, q]
+  );
+
+  const counts = {
+    videos: allVideos.length,
+    notes: DOCS.filter((d) => d.subject === activeSubject && d.kind === "notes")
+      .length,
+    "past-questions": DOCS.filter(
+      (d) => d.subject === activeSubject && d.kind === "past-questions"
+    ).length,
+  } as const;
+
+  useEffect(() => {
+    if (tab !== "videos" && url.vfilter !== "all") setURL({ vfilter: "all" });
+  }, [tab, url.vfilter, setURL]);
+
+  return (
+    <main
+      className="min-h-screen"
+      style={{ background: "#ffffff", color: "#111" }}
+    >
+      <Section>
+        {/* Subject row */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {subjects.map((s) => (
+              <button
+                key={s}
+                onClick={() => setURL({ subject: s })}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeSubject === s
+                    ? "text-stone-900"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                }`}
+                style={
+                  activeSubject === s
+                    ? { background: PALETTE.accent }
+                    : undefined
+                }
+              >
+                {SUBJECT_LABEL[s]}
+              </button>
+            ))}
           </div>
+          {/* Search */}
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4" />
+            <input
+              value={q}
+              onChange={(e) => setURL({ q: e.target.value })}
+              placeholder="Search within this subject…"
+              className="w-full pl-9 pr-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:border-amber-500"
+              aria-label="Search within this subject"
+            />
+          </div>
+        </div>
 
-          <div className="mt-8 lg:mt-16 border-t border-gray-200 pt-6 lg:pt-8 text-center">
-            <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} ByteLane Digital Solutions. All
-              rights reserved.
+        {/* Category tabs */}
+        <div className="mt-4 flex items-center justify-between flex-wrap gap-3">
+          <Tabs<"videos" | "notes" | "past-questions">
+            value={tab}
+            onChange={(v) => setURL({ tab: v })}
+            items={[
+              {
+                value: "videos",
+                label: `${CATEGORY_LABEL["videos"]} (Videos)`,
+                icon: <Play className="h-4 w-4" />,
+                badge: counts.videos,
+              },
+              {
+                value: "notes",
+                label: CATEGORY_LABEL["notes"],
+                icon: <FileText className="h-4 w-4" />,
+                badge: counts.notes,
+              },
+              {
+                value: "past-questions",
+                label: CATEGORY_LABEL["past-questions"],
+                icon: <ListChecks className="h-4 w-4" />,
+                badge: counts["past-questions"],
+              },
+            ]}
+          />
+
+          {/* Video sub-filter */}
+          {tab === "videos" && (
+            <Tabs<"all" | VideoTag>
+              value={vfilter}
+              onChange={(v) => setURL({ vfilter: v })}
+              items={[
+                {
+                  value: "all",
+                  label: "All",
+                  icon: <Filter className="h-4 w-4" />,
+                },
+                { value: "concept", label: "Concept" },
+                { value: "topic", label: "Topic" },
+                { value: "past", label: "Past Qs" },
+              ]}
+              size="sm"
+            />
+          )}
+        </div>
+
+        {/* Content grid by tab */}
+        <div className="mt-8">
+          {tab === "videos" &&
+            (vids.length === 0 ? (
+              <p className="text-sm text-stone-600">No videos yet.</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {vids.map((l) => (
+                  <a
+                    key={l.id}
+                    href={l.url || "#"}
+                    className="rounded-xl p-3 hover:shadow-sm"
+                    style={{
+                      background: "#ffffff",
+                      border: `1px solid ${PALETTE.darkLine}`,
+                    }}
+                  >
+                    <div className="text-sm font-semibold text-stone-900">
+                      {l.title}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-[11px]">
+                      <span
+                        className="px-2 py-0.5 rounded-full"
+                        style={
+                          l.tag === "concept"
+                            ? { background: "#e6f5ef", color: "#0d6b4a" }
+                            : l.tag === "topic"
+                            ? { background: "#eaf1ff", color: "#1e4fbf" }
+                            : { background: "#ffeff0", color: "#9b1c25" }
+                        }
+                      >
+                        {l.tag === "past" ? "Past Qs" : l.tag}
+                      </span>
+                      <span className="text-stone-500">{l.duration}</span>
+                    </div>
+                    <p className="text-xs text-stone-600 mt-1">
+                      {l.description}
+                    </p>
+                  </a>
+                ))}
+              </div>
+            ))}
+
+          {tab === "notes" &&
+            (notes.length === 0 ? (
+              <p className="text-sm text-stone-600">No notes yet.</p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {notes.map((d) => (
+                  <a
+                    key={d.id}
+                    href={d.url}
+                    className="rounded-lg p-4 hover:bg-stone-100"
+                    style={{
+                      background: "#f7f7f7",
+                      border: `1px solid ${PALETTE.darkLine}`,
+                    }}
+                  >
+                    <div className="text-sm font-semibold text-stone-900">
+                      {d.title}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ))}
+
+          {tab === "past-questions" &&
+            (pqs.length === 0 ? (
+              <p className="text-sm text-stone-600">No past questions yet.</p>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {pqs.map((d) => (
+                  <a
+                    key={d.id}
+                    href={d.url}
+                    className="rounded-lg p-4 hover:shadow-sm"
+                    style={{
+                      background: "#ffffff",
+                      border: `1px solid ${PALETTE.darkLine}`,
+                    }}
+                  >
+                    <div className="text-sm font-semibold text-stone-900">
+                      {d.title}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ))}
+        </div>
+
+        {/* Sidebar: quick wins + parents */}
+        <div className="mt-10 grid gap-6 lg:grid-cols-[1fr,320px]">
+          <div></div>
+          <aside className="space-y-6">
+            <div
+              className="rounded-xl p-5"
+              style={{
+                background: "#ffffff",
+                border: `1px solid ${PALETTE.darkLine}`,
+              }}
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" style={{ color: "#8a7a25" }} />
+                <h3 className="text-[15px] font-semibold text-stone-900">
+                  Quick Wins
+                </h3>
+              </div>
+              <ul className="space-y-3">
+                {TIPS.map((t) => (
+                  <li key={t.id}>
+                    <div className="font-medium text-[13px] text-stone-900">
+                      {t.title}
+                    </div>
+                    <div className="text-[12px] text-stone-600">{t.blurb}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div
+              className="rounded-xl p-5"
+              style={{
+                background: "#ffffff",
+                border: `1px solid ${PALETTE.darkLine}`,
+              }}
+            >
+              <div className="mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-[15px] font-semibold text-stone-900">
+                  Parents First
+                </h3>
+              </div>
+              <ul className="space-y-2 text-sm text-stone-800">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />{" "}
+                  Weekly progress notes
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />{" "}
+                  Safe, clear boundaries
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />{" "}
+                  Calm improvement, not cramming
+                </li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </Section>
+    </main>
+  );
+}
+
+/* ======================= Tips ======================= */
+function TipsPage() {
+  return (
+    <main className="min-h-screen" style={{ background: PALETTE.paper }}>
+      <Section>
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center gap-2">
+            <Lightbulb className="h-6 w-6" style={{ color: "#8a7a25" }} />
+            <h1 className="text-3xl font-extrabold">Science & Maths Tricks</h1>
+          </div>
+          <p className="mt-2 text-stone-700">
+            Memory anchors, speed methods, and exam cues.
+          </p>
+        </div>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {TIPS.map((t) => (
+            <div
+              key={t.id}
+              className="rounded-2xl p-5"
+              style={{
+                background: "#ffffff",
+                border: `1px solid ${PALETTE.darkLine}`,
+              }}
+            >
+              <h3 className="text-base font-semibold text-stone-900">
+                {t.title}
+              </h3>
+              <p className="mt-1 text-sm text-stone-700">{t.blurb}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </main>
+  );
+}
+
+/* ======================= Contact ======================= */
+function ContactPage() {
+  return (
+    <main
+      className="min-h-screen"
+      style={{ background: "#ffffff", color: "#111" }}
+    >
+      <Section className="py-10">
+        <div className="text-center">
+          <h1 className="text-3xl font-extrabold">
+            Book Home or Online Tuition
+          </h1>
+          <p className="mt-2 text-stone-700">
+            Tell us the level and goals—SHS/JHS, Science & Maths.
+          </p>
+        </div>
+        <div
+          className="rounded-3xl p-6 shadow-sm border max-w-2xl mx-auto mt-8"
+          style={{ background: "#ffffff", borderColor: PALETTE.darkLine }}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              alert("Thanks! We’ll reach out within 24 hours.");
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm text-stone-700">
+                <span className="sr-only">Parent/Guardian Name</span>
+                <input
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                  placeholder="Parent/Guardian Name"
+                  required
+                  id="parent-name"
+                  name="parentName"
+                />
+              </label>
+              <label className="text-sm text-stone-700">
+                <span className="sr-only">Phone</span>
+                <input
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                  placeholder="+233 ..."
+                  required
+                  id="phone"
+                  name="phone"
+                />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm text-stone-700">
+                <span className="sr-only">Level</span>
+                <select
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                  id="level"
+                  name="level"
+                >
+                  <option>JHS</option>
+                  <option>SHS</option>
+                </select>
+              </label>
+              <label className="text-sm text-stone-700">
+                <span className="sr-only">Subject</span>
+                <select
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                  id="subject-select"
+                  name="subject"
+                >
+                  <option>Core Mathematics</option>
+                  <option>Integrated Science</option>
+                  <option>Physics</option>
+                  <option>Chemistry</option>
+                  <option>Biology</option>
+                </select>
+              </label>
+            </div>
+            <label className="text-sm text-stone-700">
+              <span className="sr-only">Mode</span>
+              <select
+                className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                id="mode"
+                name="mode"
+              >
+                <option>Home Tuition</option>
+                <option>Online Tuition</option>
+              </select>
+            </label>
+            <label className="text-sm text-stone-700 block">
+              <span className="sr-only">Goals</span>
+              <textarea
+                rows={4}
+                className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                placeholder="Goals, timelines, topics to fix…"
+                id="goals"
+                name="goals"
+              />
+            </label>
+            <button
+              type="submit"
+              className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-stone-900 hover:opacity-90"
+              style={{ background: PALETTE.accent }}
+            >
+              Request Free Assessment
+            </button>
+            <p className="mt-2 text-xs text-stone-500 text-center">
+              Private & safe. We respond within 24 hours.
+            </p>
+          </form>
+        </div>
+      </Section>
+    </main>
+  );
+}
+
+/* ======================= App Shell ======================= */
+export default function App() {
+  return (
+    <>
+      {/* Header */}
+      <header
+        className="sticky top-0 z-50 w-full border-b backdrop-blur"
+        style={{
+          borderColor: "rgba(0,0,0,0.08)",
+          background: "rgba(255,255,255,0.92)",
+        }}
+      >
+        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-xl font-extrabold"
+            style={{ color: "#5a5f28" }}
+          >
+            <ShieldCheck
+              className="h-6 w-6"
+              style={{ color: PALETTE.accent }}
+            />{" "}
+            iTeach Pro
+          </Link>
+          <nav className="hidden md:flex items-center gap-6 text-sm text-stone-700">
+            <Link to="/programs" className="hover:text-stone-900">
+              Programs
+            </Link>
+            <Link to="/library?tab=notes" className="hover:text-stone-900">
+              Study
+            </Link>
+            <Link to="/library?tab=videos" className="hover:text-stone-900">
+              Watch
+            </Link>
+            <Link
+              to="/library?tab=past-questions"
+              className="hover:text-stone-900"
+            >
+              Practice
+            </Link>
+            <Link to="/tips" className="hover:text-stone-900">
+              Tricks
+            </Link>
+            <Link to="/contact" className="hover:text-stone-900">
+              Book Tutor
+            </Link>
+          </nav>
+          <Link
+            to="/contact"
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold hover:opacity-90"
+            style={{ background: PALETTE.accent, color: PALETTE.accentInk }}
+          >
+            Book Home/Online <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </header>
+
+      {/* Body background transitions from hero to paper */}
+      <div
+        className="min-h-screen"
+        style={{
+          background:
+            "linear-gradient(180deg,#3a3a3c 0%, #3a3a3c 0%, #faf9f7 0%)",
+        }}
+      >
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/programs" element={<ProgramsPage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/tips" element={<TipsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+        </Routes>
+      </div>
+
+      {/* Footer */}
+      <footer
+        className="border-t"
+        style={{ borderColor: "rgba(0,0,0,0.08)", background: "#ffffff" }}
+      >
+        <div className="mx-auto w-full max-w-7xl px-4 py-10 grid gap-6 md:grid-cols-3 text-sm">
+          <div>
+            <div
+              className="flex items-center gap-2 font-extrabold"
+              style={{ color: "#5a5f28" }}
+            >
+              <ShieldCheck
+                className="h-5 w-5"
+                style={{ color: PALETTE.accent }}
+              />{" "}
+              iTeach Pro
+            </div>
+            <p className="mt-2 text-stone-600">
+              Science & Maths—simple, fun, understandable.
             </p>
           </div>
-        </Container>
+          <div>
+            <div className="font-semibold text-stone-900">Explore</div>
+            <ul className="mt-2 space-y-1 text-stone-600">
+              <li>
+                <Link to="/programs" className="hover:text-stone-900">
+                  Programs
+                </Link>
+              </li>
+              <li>
+                <Link to="/library?tab=notes" className="hover:text-stone-900">
+                  Study (Notes)
+                </Link>
+              </li>
+              <li>
+                <Link to="/library?tab=videos" className="hover:text-stone-900">
+                  Watch (Videos)
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/library?tab=past-questions"
+                  className="hover:text-stone-900"
+                >
+                  Practice (Past Qs)
+                </Link>
+              </li>
+              <li>
+                <Link to="/tips" className="hover:text-stone-900">
+                  Tricks
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-stone-900">
+                  Book Tutor
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div className="text-stone-500 text-xs md:text-right">
+            © {new Date().getFullYear()} iTeach Pro. All rights reserved.
+          </div>
+        </div>
       </footer>
-    </div>
+    </>
   );
 }
